@@ -9,7 +9,7 @@
 static adc_oneshot_unit_handle_t adc_handle;
 static adc_cali_handle_t cali_handle;
 void configure_adc() {
-  adc_oneshot_unit_init_cfg_t init_cfg = {.unit_id = ADC_UNIT};
+  adc_oneshot_unit_init_cfg_t init_cfg = {.unit_id = ADC_UNIT, .clk_src = ADC_DIGI_CLK_SRC_DEFAULT, .ulp_mode = ADC_ULP_MODE_DISABLE};
   adc_oneshot_new_unit(&init_cfg, &adc_handle);
 
   adc_oneshot_chan_cfg_t chan_cfg = {
