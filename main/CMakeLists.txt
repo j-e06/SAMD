@@ -1,7 +1,7 @@
 idf_component_register(
         SRCS
-#        "Thermistor.cpp"
-#        "main.cpp"
+        #        "Thermistor.cpp"
+        #        "main.cpp"
         "config.cpp"
-        "SoftAP/softap.c"
+        "SoftAP/softap.cpp"
         INCLUDE_DIRS ".")

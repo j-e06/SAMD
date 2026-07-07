@@ -11,6 +11,7 @@
 
 static const char *NTC_TAG = "NTC";
 
+static const char *WIFI_TAG = "wifi softAP";
 
 
 #define CONFIG_SOFTAP_DEFAULT_SSID "esp32test"
