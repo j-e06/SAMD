@@ -21,7 +21,7 @@ extern "C" void app_main(void) {
     gpio_set_level(PUMP_IN2, 0);
     vTaskDelay(pdMS_TO_TICKS(1000));
 
-    // Coast (off)
+    // Coast (off)as
     // gpio_set_level(PUMP_IN1, 0);
     // gpio_set_level(PUMP_IN2, 0);
     // vTaskDelay(pdMS_TO_TICKS(5000));
