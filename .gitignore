@@ -1,2 +1,4 @@
 .env
 build
+sdkconfig
+cmake-build-debug-esp-idf
