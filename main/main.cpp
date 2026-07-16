@@ -1,18 +1,25 @@
+#include "esp_log.h"
 #include "driver/gpio.h"
 #include "freertos/FreeRTOS.h"
 #include "freertos/task.h"
-#include "Thermistor.cpp"
-#include "config.cpp"
+
+#define onboardLED GPIO_NUM_15
+
+static const char *mainTag = "MAIN";
+
 extern "C" void app_main(void) {
-    NTC ntc;
+    ESP_LOGI(mainTag, "Starting main.\n");
 
-    float temp = ntc.getReading();
+    bool ledState = false;
 
-    printf("Temperature is %f\n", temp);
+    gpio_reset_pin(onboardLED);
 
+    gpio_set_direction(onboardLED, GPIO_MODE_OUTPUT);
 
-  while (true) {
-        printf("Temp: %f\n", (ntc.getReading()));
+    while (true) {
+        ledState = !ledState;
+        gpio_set_level(onboardLED, ledState);
+        ESP_LOGI(mainTag, "LED: %s\n", ledState ? "on" : "off");
         vTaskDelay(pdMS_TO_TICKS(1000));
-  }
+    }
 }
