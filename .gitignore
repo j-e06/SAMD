@@ -4,3 +4,4 @@ sdkconfig
 cmake-build-debug-esp-idf
 main/build
 cmake-build-debug
+.idea
