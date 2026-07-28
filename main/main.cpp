@@ -7,7 +7,8 @@
 
 static const char *mainTag = "MAIN";
 
-extern "C" void app_main(void) {
+extern "C" void app_main(void)
+{
     ESP_LOGI(mainTag, "Starting main.\n");
 
     bool ledState = false;
@@ -16,7 +17,8 @@ extern "C" void app_main(void) {
 
     gpio_set_direction(onboardLED, GPIO_MODE_OUTPUT);
 
-    while (true) {
+    while (true)
+    {
         ledState = !ledState;
         gpio_set_level(onboardLED, ledState);
         ESP_LOGI(mainTag, "LED: %s\n", ledState ? "on" : "off");
