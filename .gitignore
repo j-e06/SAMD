@@ -6,3 +6,7 @@ cmake-build-debug-esp-idf
 main/build
 cmake-build-debug
 .idea
+
+main/build
+cmake-build-debug
+.idea
