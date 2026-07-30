@@ -36,9 +36,8 @@ void Pump::off() {
     PumpCmd cmd = PumpCmd::OFF;
     xQueueSend(queue, &cmd, portMAX_DELAY);
 }
-
 void Pump::main_task() {
-    ESP_LOGI(TAG, "Starting Pump task.");
+    ESP_LOGI(PUMP_TAG, "Starting Pump task.");
     PumpCmd cmd;
     while (1) {
         if (xQueueReceive(queue, &cmd, portMAX_DELAY) == pdTRUE) {

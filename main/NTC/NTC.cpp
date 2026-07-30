@@ -8,7 +8,7 @@ Thermistor::Thermistor(QueueHandle_t queue): queue(queue){
 }
 
 void Thermistor::init() {
-    ESP_LOGI(TAG, "Start NTC init.\n");
+    ESP_LOGI(NTC_TAG, "Start NTC init.\n");
     // start INIT of given ADC unit.
 
     // create the one shot cfg
@@ -36,7 +36,7 @@ void Thermistor::init() {
 
     adc_cali_create_scheme_curve_fitting(&cali_cfg, &cali_handle);
 
-    ESP_LOGI(TAG, "Init complete.\n");
+    ESP_LOGI(NTC_TAG, "Init complete.\n");
 
 }
 void Thermistor::task_wrap(void *pvParameters) {
@@ -70,7 +70,7 @@ esp_err_t Thermistor::read(float *temp) {
 
     // check reading is valid
     if (vout <= 0.01f || vout >= VIN - 0.01f) {
-        ESP_LOGE(TAG, "Failed to read data out of NTC, voltage out of range: %f", vout);
+        ESP_LOGE(NTC_TAG, "Failed to read data out of NTC, voltage out of range: %f", vout);
         return ESP_FAIL;
     }
 

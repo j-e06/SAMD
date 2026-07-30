@@ -13,7 +13,7 @@
 #define PUMP_IN1 GPIO_NUM_19
 #define PUMP_IN2 GPIO_NUM_20
 
-static const char* TAG = "Pump";
+static const char* PUMP_TAG = "Pump";
 
 class Pump {
 
@@ -23,8 +23,6 @@ public:
     void init();
     void on();
     void off();
-    void status(); // change to be just get it via calling bool status = pump();
-
     bool operator()() const;
 private:
     enum class PumpCmd { OFF, ON };
