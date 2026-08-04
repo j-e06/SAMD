@@ -1,4 +1,8 @@
 idf_component_register(
         SRCS
         "main.cpp"
-        INCLUDE_DIRS ".")
+        "mqtt/MQTTHandler.cpp"
+        "mqtt/MQTTHandler.h"
+        INCLUDE_DIRS "."
+        REQUIRES mqtt
+)
