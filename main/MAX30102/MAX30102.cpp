@@ -6,6 +6,7 @@ MAX30102::MAX30102(QueueHandle_t queue, i2c_master_bus_handle_t bus_handle, uint
     : spo2_hr_queue(queue), i2c_bus_handle(bus_handle), device_addr(device_address), scl_speed_hz(scl_speed_hz)
 {
     init();
+    start_collect();
     xTaskCreate(&MAX30102::task_wrap, "MAX30102_task", 4096, this, 5, &task_handle);
 }
 
