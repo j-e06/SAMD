@@ -10,9 +10,7 @@
 
 #include "structs.h"
 static const char *TAG = "MQTT Handler";
-
-#define BROKER_URL "192.168.1.100"
-#define BROKER_PORT 1883
+inline const char* BROKER_URI = "mqtt://192.168.1.100:1883";
 #define BROKER_TOPIC "sleep/data"
 
 class MQTTHandler {

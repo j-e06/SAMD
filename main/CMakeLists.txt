@@ -5,4 +5,5 @@ idf_component_register(
         "mqtt/MQTTHandler.h"
         INCLUDE_DIRS "."
         REQUIRES mqtt
+        PRIV_REQUIRES esp_driver_gpio
 )

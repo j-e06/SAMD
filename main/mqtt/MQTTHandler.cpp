@@ -15,8 +15,7 @@ MQTTHandler::MQTTHandler() {
 void MQTTHandler::init() {
     esp_mqtt_client_config_t config = {};
 
-    config.broker.address.hostname = BROKER_URL;
-    config.broker.address.port = BROKER_PORT;
+    config.broker.address.uri = BROKER_URI;
 
     client = esp_mqtt_client_init(&config);
     if (client == nullptr) {
@@ -79,6 +78,7 @@ void MQTTHandler::handleEvent(esp_mqtt_event_handle_t event) {
 void MQTTHandler::publish(combined_data data) {
     if (!connected) {
         ESP_LOGE(TAG, "Tried to publish without MQTT connection.");
+        return;
     }
     uint64_t now = esp_timer_get_time() / 1000; // time since boot in ms
     char payload[128];
@@ -100,5 +100,9 @@ void MQTTHandler::publish(combined_data data) {
         0);
     if (msg_id < 0) {
         ESP_LOGE(TAG, "Failed to publish message, msg id: %d", msg_id);
+    }
+    else
+    {
+        ESP_LOGI(TAG, "Publish message: %d", msg_id);
     }
 }
