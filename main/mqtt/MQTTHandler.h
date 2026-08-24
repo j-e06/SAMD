@@ -10,13 +10,13 @@
 
 #include "structs.h"
 static const char *TAG = "MQTT Handler";
-inline const char* BROKER_URI = "mqtt://192.168.1.100:1883";
+inline const char* BROKER_URI =  "mqtt://10.81.202.114:1883";
 #define BROKER_TOPIC "sleep/data"
 
 class MQTTHandler {
 public:
     MQTTHandler();
-    void publish(combined_data data);
+    bool publish(combined_data data);
 private:
     bool connected = false;
 
