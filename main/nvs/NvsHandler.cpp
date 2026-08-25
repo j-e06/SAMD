@@ -12,8 +12,66 @@ esp_err_t NvsHandler::init()
         ESP_ERROR_CHECK(nvs_flash_erase());
         err = nvs_flash_init();
     }
+
+    if (err != ESP_OK)
+    {
+        ESP_LOGE(TAG, "NVS init failed: %s", esp_err_to_name(err));
+    }
     return err;
 
+}
+esp_err_t NvsHandler::getBlob(const char* ns, const char* key, void* data, size_t size)
+{
+    nvs_handle handle;
+
+    esp_err_t err = nvs_open(ns, NVS_READONLY, &handle);
+    if (err != ESP_OK)
+    {
+        ESP_LOGE(TAG, "Open failed for ns=%s: %s", ns, esp_err_to_name(err));
+        return err;
+    }
+
+    // get size of blob in nvs
+    size_t requiredSize = 0;
+
+    err = nvs_get_blob(handle, key, nullptr, &requiredSize);
+    if (err != ESP_OK)
+    {
+        nvs_close(handle);
+        return err;
+    }
+
+    // we ain't got enough buffer space
+    if (size < requiredSize)
+    {
+        nvs_close(handle);
+        return ESP_ERR_NVS_INVALID_LENGTH;
+    }
+
+    // read blob into data
+    err = nvs_get_blob(handle, key, data, &requiredSize);
+
+    nvs_close(handle);
+
+    return err;
+}
+
+esp_err_t NvsHandler::setBlob(const char* ns, const char* key, const void* data, size_t size)
+{
+    nvs_handle handle;
+    esp_err_t err = nvs_open(ns, NVS_READWRITE, &handle);
+    if (err != ESP_OK)
+    {
+        ESP_LOGE(TAG, "open failed for ns=%s: %s", ns, esp_err_to_name(err));
+        return err;
+    }
+    err = nvs_set_blob(handle, key, data, size);
+    if (err == ESP_OK)
+    {
+        err = nvs_commit(handle);
+    }
+    nvs_close(handle);
+    return err;
 }
 
 esp_err_t NvsHandler::setString(const char* ns, const char* key, const std::string& value)

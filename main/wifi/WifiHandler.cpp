@@ -29,6 +29,11 @@ void WifiHandler::init()
     ESP_LOGI(TAG, "Init complete.");
 }
 
+void startSoftAP(const char* ssid, const char* password)
+{
+
+}
+
 bool WifiHandler::hasStoredCreds()
 {
     std::string ssid;

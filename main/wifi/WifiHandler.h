@@ -1,5 +1,4 @@
 #pragma once
-#include <string>
 #include "esp_event.h"
 #include "freertos/FreeRTOS.h"
 #include "freertos/event_groups.h"

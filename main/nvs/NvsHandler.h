@@ -15,6 +15,9 @@ class NvsHandler
     esp_err_t setString(const char *ns, const char *key, const std::string& value);
     esp_err_t getString(const char *ns, const char *key, std::string& value);
 
+    esp_err_t setBlob(const char *ns, const char *key, const void* data, size_t size);
+    esp_err_t getBlob(const char *ns, const char *key, void* data, size_t size);
+
     esp_err_t eraseNamespace(const char* ns);
 };
 
