@@ -5,6 +5,9 @@
 
 static const char* TAG = "WifiHandler";
 
+static const char* WIFI_DEFAULT_SSID = "esp32";
+static const char* WIFI_DEFAULT_PASSWORD = "fuckme12";
+
 #define WIFI_CONNECTED_BIT BIT0
 #define WIFI_FAIL_BIT BIT1
 
@@ -29,9 +32,24 @@ void WifiHandler::init()
     ESP_LOGI(TAG, "Init complete.");
 }
 
-void startSoftAP(const char* ssid, const char* password)
+bool WifiHandler::startSoftAP()
 {
+    esp_netif_create_default_wifi_ap();
 
+    wifi_config_t apConfig = {};
+    strncpy(reinterpret_cast<char*>(apConfig.ap.ssid), WIFI_DEFAULT_SSID, sizeof(apConfig.ap.ssid));
+    apConfig.ap.ssid_len = strlen(WIFI_DEFAULT_SSID);
+    strncpy(reinterpret_cast<char*>(apConfig.ap.password), WIFI_DEFAULT_PASSWORD, sizeof(apConfig.ap.password));
+    apConfig.ap.max_connection = 4;
+    apConfig.ap.authmode = WIFI_AUTH_WPA2_PSK;
+
+    ESP_ERROR_CHECK(esp_wifi_set_mode(WIFI_MODE_AP));
+    ESP_ERROR_CHECK(esp_wifi_set_config(WIFI_IF_AP, &apConfig));
+    ESP_ERROR_CHECK(esp_wifi_start());
+
+    ESP_LOGI(TAG, "SoftAP started, SSID:%s", WIFI_DEFAULT_SSID);
+    // need to serve the website to get the creds...
+    return true;
 }
 
 bool WifiHandler::hasStoredCreds()
@@ -45,6 +63,13 @@ esp_err_t WifiHandler::saveCreds(const std::string& ssid, const std::string& pas
     esp_err_t err = nvs_.setString(NVS_NAMESPACE, "ssid", ssid);
     if (err != ESP_OK) return err;
     return nvs_.setString(NVS_NAMESPACE, "password", password);
+}
+
+bool WifiHandler::clearCreds()
+{
+    esp_err_t err = nvs_.setString(NVS_NAMESPACE, "ssid", "");
+    if (err != ESP_OK) return err;
+    return nvs_.setString(NVS_NAMESPACE, "password", "");
 }
 
 bool WifiHandler::startStation()

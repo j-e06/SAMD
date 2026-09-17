@@ -46,7 +46,6 @@ void MQTTHandler::event_handler(
 }
 void MQTTHandler::handleEvent(esp_mqtt_event_handle_t event) {
     switch (event->event_id) {
-
         case MQTT_EVENT_CONNECTED: {
             connected = true;
             ESP_LOGI(TAG, "MQTT Connected");

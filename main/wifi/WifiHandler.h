@@ -4,14 +4,17 @@
 #include "freertos/event_groups.h"
 #include "../nvs/NvsHandler.h"
 
+
+
 class WifiHandler {
 public:
     explicit WifiHandler(NvsHandler& nvs);
 
     void init();
     bool startStation();  // reads creds from NVS, blocks until connected/failed
-    void startSoftAP(const char* ssid, const char* password);
+    bool startSoftAP();
     bool hasStoredCreds();
+    bool clearCreds();
     esp_err_t saveCreds(const std::string& ssid, const std::string& password);
 
 private:

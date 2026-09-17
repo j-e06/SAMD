@@ -27,11 +27,11 @@ extern "C" void app_main(void) {
     ESP_ERROR_CHECK(nvs.init());
     // TODO: wait for WiFi connection
     wifi.init();
-    if (!wifi.hasStoredCreds())
-    {
-        wifi.saveCreds("Yeahno", "kelarotta");
-    }
-
+    wifi.clearCreds();
+    //if (!wifi.hasStoredCreds())
+    //{
+    //    wifi.saveCreds("Yeahno", "kelArotta");
+    //}
     if (wifi.hasStoredCreds())
     {
         if (wifi.startStation())
@@ -41,6 +41,10 @@ extern "C" void app_main(void) {
         {
             ESP_LOGE(TAG, "Failed to connect to wifi with stored creds.");
         }
+    }
+    else
+    {
+        wifi.startSoftAP();
     }
     // create client.
     MQTTHandler mqtt;
