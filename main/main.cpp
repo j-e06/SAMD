@@ -29,12 +29,12 @@ extern "C" void app_main()
         gpio_set_level(PUMP_IN1, 1);
         gpio_set_level(PUMP_IN2, 0);
         ESP_LOGI(mainTag, "Pump ON");
-        vTaskDelay(pdMS_TO_TICKS(5000));
+        //vTaskDelay(pdMS_TO_TICKS(5000));
 
         // Pump OFF
-        gpio_set_level(PUMP_IN1, 0);
-        gpio_set_level(PUMP_IN2, 0);
-        ESP_LOGI(mainTag, "Pump OFF");
-        vTaskDelay(pdMS_TO_TICKS(5000));
+        //gpio_set_level(PUMP_IN1, 0);
+        //gpio_set_level(PUMP_IN2, 0);
+        //ESP_LOGI(mainTag, "Pump OFF");
+        //vTaskDelay(pdMS_TO_TICKS(5000));
     }
 }
