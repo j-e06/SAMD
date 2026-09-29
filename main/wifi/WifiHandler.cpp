@@ -9,6 +9,30 @@ static const char* TAG = "WifiHandler";
 #define WIFI_CONNECTED_BIT BIT0
 #define WIFI_FAIL_BIT BIT1
 
+// Most functions below are just "call the driver, and bail out with a log
+// line if it complains." These two macros say that once instead of retyping
+// it at every call site.
+
+#define RETURN_ON_ERR(expr, msg)                                \
+    do {                                                         \
+        esp_err_t _err = (expr);                                  \
+        if (_err != ESP_OK)                                       \
+        {                                                          \
+            ESP_LOGE(TAG, msg ": %s", esp_err_to_name(_err));       \
+            return _err;                                           \
+        }                                                           \
+    } while (0)
+
+#define RETURN_ON_ERR_UNLESS(expr, ok, msg)                     \
+    do {                                                         \
+        esp_err_t _err = (expr);                                  \
+        if (_err != ESP_OK && _err != (ok))                       \
+        {                                                          \
+            ESP_LOGE(TAG, msg ": %s", esp_err_to_name(_err));       \
+            return _err;                                           \
+        }                                                           \
+    } while (0)
+
 WifiHandler::WifiHandler(NvsHandler& nvs) : nvs_(nvs)
 {
 }
@@ -33,27 +57,11 @@ esp_err_t WifiHandler::init()
 {
     if (initialized_) return ESP_OK;
 
-    esp_err_t err = esp_netif_init();
-    if (err != ESP_OK && err != ESP_ERR_INVALID_STATE)
-    {
-        ESP_LOGE(TAG, "netif init failed: %s", esp_err_to_name(err));
-        return err;
-    }
-
-    err = esp_event_loop_create_default();
-    if (err != ESP_OK && err != ESP_ERR_INVALID_STATE)
-    {
-        ESP_LOGE(TAG, "event loop create failed: %s", esp_err_to_name(err));
-        return err;
-    }
+    RETURN_ON_ERR_UNLESS(esp_netif_init(), ESP_ERR_INVALID_STATE, "netif init failed");
+    RETURN_ON_ERR_UNLESS(esp_event_loop_create_default(), ESP_ERR_INVALID_STATE, "event loop create failed");
 
     wifi_init_config_t cfg = WIFI_INIT_CONFIG_DEFAULT();
-    err = esp_wifi_init(&cfg);
-    if (err != ESP_OK)
-    {
-        ESP_LOGE(TAG, "wifi init failed: %s", esp_err_to_name(err));
-        return err;
-    }
+    RETURN_ON_ERR(esp_wifi_init(&cfg), "wifi init failed");
 
     eventGroup_ = xEventGroupCreate();
     if (!eventGroup_)
@@ -62,21 +70,12 @@ esp_err_t WifiHandler::init()
         return ESP_ERR_NO_MEM;
     }
 
-    err = esp_event_handler_instance_register(
-        WIFI_EVENT, ESP_EVENT_ANY_ID, &WifiHandler::eventHandler, this, &wifiEventInstance_);
-    if (err != ESP_OK)
-    {
-        ESP_LOGE(TAG, "wifi event register failed: %s", esp_err_to_name(err));
-        return err;
-    }
-
-    err = esp_event_handler_instance_register(
-        IP_EVENT, IP_EVENT_STA_GOT_IP, &WifiHandler::eventHandler, this, &ipEventInstance_);
-    if (err != ESP_OK)
-    {
-        ESP_LOGE(TAG, "ip event register failed: %s", esp_err_to_name(err));
-        return err;
-    }
+    RETURN_ON_ERR(esp_event_handler_instance_register(
+        WIFI_EVENT, ESP_EVENT_ANY_ID, &WifiHandler::eventHandler, this, &wifiEventInstance_),
+        "wifi event register failed");
+    RETURN_ON_ERR(esp_event_handler_instance_register(
+        IP_EVENT, IP_EVENT_STA_GOT_IP, &WifiHandler::eventHandler, this, &ipEventInstance_),
+        "ip event register failed");
 
     initialized_ = true;
     ESP_LOGI(TAG, "Init complete.");
@@ -102,18 +101,13 @@ esp_err_t WifiHandler::saveCreds(const std::string& ssid, const std::string& pas
         return ESP_ERR_INVALID_ARG;
     }
 
-    esp_err_t err = nvs_.setString(NVS_NAMESPACE, "ssid", ssid);
-    if (err != ESP_OK) return err;
+    RETURN_ON_ERR(nvs_.setString(NVS_NAMESPACE, "ssid", ssid), "saving ssid failed");
     return nvs_.setString(NVS_NAMESPACE, "password", password);
 }
 
 esp_err_t WifiHandler::startStation(TickType_t timeout)
 {
-    if (!initialized_)
-    {
-        esp_err_t err = init();
-        if (err != ESP_OK) return err;
-    }
+    if (!initialized_) RETURN_ON_ERR(init(), "init failed");
 
     std::string ssid, password;
     if (nvs_.getString(NVS_NAMESPACE, "ssid", ssid) != ESP_OK ||
@@ -123,13 +117,15 @@ esp_err_t WifiHandler::startStation(TickType_t timeout)
         return ESP_ERR_NVS_NOT_FOUND;
     }
 
-    // Guard against stored values that no longer fit the driver's fixed buffers
-    // (strncpy would otherwise truncate without a null terminator).
     if (ssid.size() > MAX_SSID_LEN || password.size() > MAX_PASS_LEN)
     {
         ESP_LOGE(TAG, "Stored creds too long for wifi_config_t.");
         return ESP_ERR_INVALID_SIZE;
     }
+
+    wifi_mode_t currentMode = WIFI_MODE_NULL;
+    esp_wifi_get_mode(&currentMode);
+    bool apActive = (currentMode == WIFI_MODE_AP || currentMode == WIFI_MODE_APSTA);
 
     esp_netif_create_default_wifi_sta();
 
@@ -138,29 +134,15 @@ esp_err_t WifiHandler::startStation(TickType_t timeout)
     std::memcpy(wifiConfig.sta.password, password.c_str(), password.size());
     wifiConfig.sta.threshold.authmode = WIFI_AUTH_WPA2_PSK;
 
-    esp_err_t err = esp_wifi_set_mode(WIFI_MODE_STA);
-    if (err != ESP_OK)
-    {
-        ESP_LOGE(TAG, "set_mode failed: %s", esp_err_to_name(err));
-        return err;
-    }
+    RETURN_ON_ERR(esp_wifi_set_mode(apActive ? WIFI_MODE_APSTA : WIFI_MODE_STA), "set_mode failed");
+    RETURN_ON_ERR(esp_wifi_set_config(WIFI_IF_STA, &wifiConfig), "set_config failed");
 
-    err = esp_wifi_set_config(WIFI_IF_STA, &wifiConfig);
-    if (err != ESP_OK)
-    {
-        ESP_LOGE(TAG, "set_config failed: %s", esp_err_to_name(err));
-        return err;
-    }
+    // Coming from AP mode, the driver's already running -- esp_wifi_start()
+    // reports that as ESP_ERR_WIFI_CONN, which isn't a real failure here.
+    RETURN_ON_ERR_UNLESS(esp_wifi_start(), ESP_ERR_WIFI_CONN, "wifi_start failed");
 
-    err = esp_wifi_start();
-    if (err != ESP_OK)
-    {
-        ESP_LOGE(TAG, "wifi_start failed: %s", esp_err_to_name(err));
-        return err;
-    }
-
-    // Reset state before waiting so a second call doesn't immediately
-    // return on bits left over from a previous connection attempt.
+    // Clear any bits left over from a previous attempt so we don't
+    // immediately "succeed" or "fail" on a stale result.
     retryCount_ = 0;
     xEventGroupClearBits(eventGroup_, WIFI_CONNECTED_BIT | WIFI_FAIL_BIT);
 
@@ -174,11 +156,7 @@ esp_err_t WifiHandler::startStation(TickType_t timeout)
 
 esp_err_t WifiHandler::startSoftAP(const char* ssid, const char* password)
 {
-    if (!initialized_)
-    {
-        esp_err_t err = init();
-        if (err != ESP_OK) return err;
-    }
+    if (!initialized_) RETURN_ON_ERR(init(), "init failed");
 
     if (!ssid || std::strlen(ssid) == 0 || std::strlen(ssid) > MAX_SSID_LEN)
     {
@@ -210,26 +188,9 @@ esp_err_t WifiHandler::startSoftAP(const char* ssid, const char* password)
         wifiConfig.ap.authmode = WIFI_AUTH_OPEN;
     }
 
-    esp_err_t err = esp_wifi_set_mode(WIFI_MODE_AP);
-    if (err != ESP_OK)
-    {
-        ESP_LOGE(TAG, "set_mode(AP) failed: %s", esp_err_to_name(err));
-        return err;
-    }
-
-    err = esp_wifi_set_config(WIFI_IF_AP, &wifiConfig);
-    if (err != ESP_OK)
-    {
-        ESP_LOGE(TAG, "set_config(AP) failed: %s", esp_err_to_name(err));
-        return err;
-    }
-
-    err = esp_wifi_start();
-    if (err != ESP_OK)
-    {
-        ESP_LOGE(TAG, "wifi_start(AP) failed: %s", esp_err_to_name(err));
-        return err;
-    }
+    RETURN_ON_ERR(esp_wifi_set_mode(WIFI_MODE_AP), "set_mode(AP) failed");
+    RETURN_ON_ERR(esp_wifi_set_config(WIFI_IF_AP, &wifiConfig), "set_config(AP) failed");
+    RETURN_ON_ERR(esp_wifi_start(), "wifi_start(AP) failed");
 
     ESP_LOGI(TAG, "SoftAP started, ssid=%s", ssid);
     return ESP_OK;
