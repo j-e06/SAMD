@@ -63,7 +63,7 @@ extern "C" void app_main(void) {
     {
         // if we're connected we can run the mqtt testing.
         // create client.
-        MQTTHandler mqtt;
+        static MQTTHandler mqtt;
 
         // create dummy data
         ntc_data ntc_d = {.temperature = 25};

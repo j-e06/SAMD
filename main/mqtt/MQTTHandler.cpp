@@ -13,6 +13,7 @@ MQTTHandler::MQTTHandler() {
 }
 
 void MQTTHandler::init() {
+    ESP_LOGI(TAG, "Connecting to %s", BROKER_URI);
     esp_mqtt_client_config_t config = {};
 
     config.broker.address.uri = BROKER_URI;
