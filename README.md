@@ -73,8 +73,8 @@ To configure Wi-Fi:
 
 1. Wait until the yellow LED is blinking.
 2. The device creates its own temporary Wi-Fi network (SoftAP). Connect your phone or computer to this network.
-   - Network name: `[SoftAP name]`
-   - Password: `[SoftAP password, if any]`
+   - Network name: SAMD-Setup
+   - Password: CHANGEME123
 3. Enter your Wi-Fi network name and password.
    - Address/page: `[add configuration page address]`
 4. The device tries to connect to your Wi-Fi network using the new credentials. It makes up to five attempts.
