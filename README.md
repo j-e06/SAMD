@@ -1,69 +1,167 @@
-| Supported Targets | ESP32 | ESP32-C2 | ESP32-C3 | ESP32-C6 | ESP32-H2 | ESP32-P4 | ESP32-S2 | ESP32-S3 |
-| ----------------- | ----- | -------- | -------- | -------- | -------- | -------- | -------- | -------- |
+SLEEP APNEA MONITORING DEVICE - USER MANUAL
 
-# Blink Example
+======================================================================
+NOTICE
+======================================================================
 
-(See the README.md file in the upper level 'examples' directory for more information about examples.)
+This device is a school project for investigating whether a low-cost
+embedded system can detect events associated with sleep apnea. It is
+not a clinically validated medical device and must not be used for
+diagnosis or treatment decisions.
 
-This example demonstrates how to blink a LED by using the GPIO driver or using the [led_strip](https://components.espressif.com/component/espressif/led_strip) library if the LED is addressable e.g. [WS2812](https://cdn-shop.adafruit.com/datasheets/WS2812B.pdf). The `led_strip` library is installed via [component manager](main/idf_component.yml).
+======================================================================
+1. OVERVIEW
+======================================================================
 
-## How to Use Example
+The device collects breathing, SpO2 and heart rate data during sleep
+and sends it to a server over Wi-Fi using MQTT. It is controlled with
+two buttons (SW1 and SW2), two LEDs (green and yellow), and optionally
+with commands sent from the server over MQTT.
 
-Before project configuration and build, be sure to set the correct chip target using `idf.py set-target <chip_name>`.
+======================================================================
+2. BEFORE YOU START
+======================================================================
 
-### Hardware Required
+1. Make sure the device has power.
+2. Take a comfortable sleeping position.
+3. Place the MAX30102 sensor module on your finger using its sock.
+4. Place the mask on your head like any other clinical mask.
 
-* A development board with normal LED or addressable LED on-board (e.g., ESP32-S3-DevKitC, ESP32-C6-DevKitC etc.)
-* A USB cable for Power supply and programming
+======================================================================
+3. CONTROLS AND INDICATORS
+======================================================================
 
-See [Development Boards](https://www.espressif.com/en/products/devkits) for more information about it.
+Buttons
+  SW1  Starts, pauses, continues and ends sessions.
+  SW2  Opens Wi-Fi configuration, or ends a paused session.
 
-### Configure the Project
+LEDs
+  Green LED   Shows the device is ready or a session is running.
+  Yellow LED  Shows the device is waiting for Wi-Fi configuration or
+              that a session is paused.
 
-Open the project configuration menu (`idf.py menuconfig`).
+LED summary
+  Yellow blinking                  Waiting for Wi-Fi configuration
+  Green on (steady)                Ready, waiting for a session
+  Green blinking every 0.5 s       Session running
+  Green and yellow both blinking   Session paused
+  Green blinks 5 times (1 s each)  Session is being finalized
 
-In the `Example Configuration` menu:
+======================================================================
+4. STARTING THE DEVICE
+======================================================================
 
-* Select the LED type in the `Blink LED type` option.
-  * Use `GPIO` for regular LED
-  * Use `LED strip` for addressable LED
-* If the LED type is `LED strip`, select the backend peripheral
-  * `RMT` is only available for ESP targets with RMT peripheral supported
-  * `SPI` is available for all ESP targets
-* Set the GPIO number used for the signal in the `Blink GPIO number` option.
-* Set the blinking period in the `Blink period in ms` option.
+1. Power on the device.
+2. The device loads its software and checks whether it has stored
+   Wi-Fi credentials.
+3. If credentials are stored, the device tries to connect to Wi-Fi.
+   - If the connection succeeds, the device initializes itself
+     (see Section 6).
+   - If the connection fails, or no credentials are stored, the
+     device starts Wi-Fi configuration (see Section 5).
 
-### Build and Flash
+======================================================================
+5. WI-FI CONFIGURATION
+======================================================================
 
-Run `idf.py -p PORT flash monitor` to build, flash and monitor the project.
+The device enters Wi-Fi configuration when:
+  - no Wi-Fi credentials are stored,
+  - the stored credentials do not work, or
+  - you hold SW2 for 3 seconds while the device is in the ready state.
 
-(To exit the serial monitor, type ``Ctrl-]``.)
+While the device is waiting for Wi-Fi configuration, the yellow LED
+blinks.
 
-See the [Getting Started Guide](https://docs.espressif.com/projects/esp-idf/en/latest/get-started/index.html) for full steps to configure and use ESP-IDF to build projects.
+To configure Wi-Fi:
+1. Wait until the yellow LED is blinking.
+2. The device creates its own temporary Wi-Fi network (SoftAP).
+   Connect your phone or computer to this network.
+   Network name: [SoftAP name]
+   Password:     [SoftAP password, if any]
+3. Enter your Wi-Fi network name and password.
+   Address/page: [add configuration page address]
+4. The device tries to connect to your Wi-Fi network using the new
+   credentials. It makes up to five attempts.
+5. If one of the attempts succeeds, the device continues to
+   initialization (see Section 6).
+6. If all five attempts fail, the device goes back to waiting for new
+   credentials (yellow LED blinking). Repeat from step 2 and check
+   that the name and password are correct.
 
-## Example Output
+======================================================================
+6. INITIALIZATION AND ERROR MODE
+======================================================================
 
-As you run the example, you will see the LED blinking, according to the previously defined period. For the addressable LED, you can also change the LED color by setting the `led_strip_set_pixel(led_strip, 0, 16, 16, 16);` (LED Strip, Pixel Number, Red, Green, Blue) with values from 0 to 255 in the [source file](main/blink_example_main.c).
+After connecting to Wi-Fi, the device initializes the air pump and the
+sensors. It also reads test data from the sensors to check that they
+are working correctly.
 
-```text
-I (315) example: Example configured to blink addressable LED!
-I (325) example: Turning the LED OFF!
-I (1325) example: Turning the LED ON!
-I (2325) example: Turning the LED OFF!
-I (3325) example: Turning the LED ON!
-I (4325) example: Turning the LED OFF!
-I (5325) example: Turning the LED ON!
-I (6325) example: Turning the LED OFF!
-I (7325) example: Turning the LED ON!
-I (8325) example: Turning the LED OFF!
-```
+If initialization is successful, the device goes to the ready state
+(see Section 7.1).
 
-Note: The color order could be different according to the LED model.
+If initialization fails, the device enters error mode and sends an
+error message to the server through MQTT, where the error can be seen.
 
-The pixel number indicates the pixel position in the LED strip. For a single LED, use 0.
+======================================================================
+7. USING THE DEVICE
+======================================================================
 
-## Troubleshooting
+7.1 Ready state
+  The green LED is on. The device is waiting for a session to start.
 
-* If the LED isn't blinking, check the GPIO or the LED type selection in the `Example Configuration` menu.
+  To start a session:
+    - Hold SW1 for more than 3 seconds, or
+    - Send the start command from the server through MQTT.
 
-For any technical queries, please open an [issue](https://github.com/espressif/esp-idf/issues) on GitHub. We will get back to you soon.
+  To change the Wi-Fi settings:
+    - Hold SW2 for 3 seconds. The device goes to Wi-Fi configuration
+      (see Section 5).
+
+7.2 Session
+  During a session the device receives data from the sensors, runs the
+  air pump, and sends the collected data to the server through MQTT.
+  The green LED blinks at 0.5-second intervals.
+
+  To pause the session:
+    - Press SW1, or
+    - Send the pause command from the server through MQTT.
+
+  To end the session:
+    - Hold SW1 for more than 3 seconds. The device starts finalizing
+      the session (see Section 7.4).
+
+7.3 Pause mode
+  The green and yellow LEDs both blink. The session is paused.
+
+  To continue the session:
+    - Press SW1, or
+    - Send the continue command from the server through MQTT.
+
+  To end the session:
+    - Press SW2. The device starts finalizing the session
+      (see Section 7.4).
+
+7.4 Finalizing the session
+  When a session ends, the device finalizes the testing and sends the
+  remaining data to the server. The green LED blinks five times, each
+  blink lasting one second. After this, the device returns to the
+  ready state (see Section 7.1).
+
+======================================================================
+8. QUICK REFERENCE
+======================================================================
+
+Ready state
+  Hold SW1 for 3 s   Start session (release when green LED blinks)
+  Hold SW2 for 3 s   Wi-Fi configuration
+  MQTT start         Start session
+
+Session running
+  Press SW1          Pause
+  Hold SW1 (>3 s)    End session
+  MQTT pause         Pause
+
+Pause mode
+  Press SW1          Continue
+  Press SW2          End session
+  MQTT continue      Continue
