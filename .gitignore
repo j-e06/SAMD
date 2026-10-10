@@ -1,5 +1,5 @@
 .env
-build
+build/
 sdkconfig
 sdkconfig.old
 cmake-build-debug-esp-idf
@@ -7,3 +7,6 @@ main/build
 cmake-build-debug
 .idea
 managed_components/
+*.zip
+main/certs/
+.cache/*

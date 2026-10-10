@@ -1,0 +1,30 @@
+menu "SAMD configuration"
+
+    config SAMD_BROKER_URI
+        string "MQTT broker URI"
+        default "mqtts://10.36.193.114:8883"
+
+    config SAMD_DEVICE_ID
+        string "Device id used in MQTT payloads"
+        default "prototype1"
+
+    config SAMD_SETUP_AP_SSID
+        string "Provisioning access point SSID"
+        default "SAMD-Setup"
+
+    config SAMD_SETUP_AP_PASSWORD
+        string "Provisioning access point password (min 8 characters)"
+        default "CHANGEME123"
+
+    config SAMD_MQTT_USERNAME
+        string "MQTT username (empty = anonymous)"
+        default ""
+
+    config SAMD_MQTT_PASSWORD
+        string "MQTT password"
+        default ""
+    config SAMD_MQTT_TLS_NAME
+        string "Name the broker certificate must carry (empty = use the URI host)"
+        default "samd-broker"
+
+endmenu

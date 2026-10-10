@@ -1,93 +1,159 @@
-#include "esp_log.h"
 #include "driver/gpio.h"
+#include "driver/i2c_master.h"
+#include "esp_log.h"
+#include "esp_system.h"
 #include "freertos/FreeRTOS.h"
-#include "freertos/task.h"
-#include "mqtt/MQTTHandler.h"
-#include "structs.h"
-#include "nvs/NvsHandler.h"
-#include "wifi/WifiHandler.h"
+#include "freertos/queue.h"
+#include "nvs.h"
+#include <string>
+
+#include "MAX30102/MAX30102.h"
+#include "NTC/NTC.h"
 #include "Provisioning/Provisioningserver.h"
-#define onboardLED GPIO_NUM_15
-#define eraseWifi GPIO_NUM_16
-static const char *mainTag = "MAIN";
+#include "buttons/Buttons.h"
+#include "mqtt/MQTTHandler.h"
+#include "nvs/NvsHandler.h"
+#include "processing/Processing.h"
+#include "pump/pump.h"
+#include "utilities.h"
+#include "wifi/WifiHandler.h"
 
+static const char *TAG = "MAIN";
+
+static constexpr const char *SETUP_AP_SSID = CONFIG_SAMD_SETUP_AP_SSID;
+static constexpr const char *SETUP_AP_PASS = CONFIG_SAMD_SETUP_AP_PASSWORD;
+static_assert(sizeof(CONFIG_SAMD_SETUP_AP_PASSWORD) > 8,
+              "WPA2 needs an AP password of at least 8 characters");
+
+static constexpr const char *SYS_NAMESPACE = "sys";
+static constexpr const char *FORCE_PROV_KEY = "force_prov";
+
+static constexpr const char *SESSION_NVS_NS = "session";
+static constexpr const char *SESSION_NVS_KEY = "active";
+
+enum class NetMode { Provisioning, Station };
+
+
+static NetMode start_provisioning(NvsHandler &nvs, WifiHandler &wifi) {
+  ESP_ERROR_CHECK(wifi.startSoftAP(SETUP_AP_SSID, SETUP_AP_PASS));
+
+  static ProvisioningServer provServer(nvs, wifi);
+
+  provServer.onCredsSaved([](bool connected) {
+    if (!connected)
+      return;
+
+    vTaskDelay(pdMS_TO_TICKS(2000));
+    esp_restart();
+  });
+
+  ESP_ERROR_CHECK(provServer.start());
+
+  return NetMode::Provisioning;
+}
+
+static NetMode start_network(NvsHandler &nvs, WifiHandler &wifi) {
+  ESP_ERROR_CHECK(wifi.init());
+  // request while in error mode, keep old creds in nvs until new ones are 100% to work.
+  // power cycle goes to old network.
+  // note, we only provision creds once, not repeatedly
+  std::string flag;
+  const bool forced =
+      nvs.getString(SYS_NAMESPACE, FORCE_PROV_KEY, flag) == ESP_OK &&
+      flag == "1";
+  if (forced) {
+    nvs.eraseNamespace(SYS_NAMESPACE);
+    ESP_LOGW(TAG, "Wifi configuration requested.");
+  }
+  if (forced || !wifi.hasStoredCreds())
+    return start_provisioning(nvs, wifi);
+
+  // waits up to 15 s, then keeps retrying in the background forever
+  // not sure if best way, but it's done.
+  const esp_err_t err = wifi.startStation(pdMS_TO_TICKS(15000));
+
+  if (err == ESP_OK) {
+    ESP_LOGI(TAG, "Connected to wifi.");
+  } else if (err == ESP_ERR_TIMEOUT) {
+    ESP_LOGW(TAG, "Not connected yet, retrying in background.");
+  } else {
+    // if we got here, stored creds are bad or driver isn't working with them
+
+    ESP_LOGE(TAG, "Station start failed: %s", esp_err_to_name(err));
+    if (err == ESP_ERR_NVS_NOT_FOUND || err == ESP_ERR_INVALID_SIZE)
+      wifi.clearCreds();
+
+    return start_provisioning(nvs, wifi);
+  }
+  return NetMode::Station;
+}
+
+// broker chosen during provisioning, else the build-time default
+static std::string broker_uri(NvsHandler &nvs) {
+  std::string uri;
+  if (nvs.getString(BROKER_NVS_NS, BROKER_NVS_KEY, uri) != ESP_OK ||
+      uri.empty())
+    uri = DEFAULT_BROKER_URI;
+  return uri;
+}
 extern "C" void app_main(void) {
-    ESP_LOGI(mainTag, "Starting main.");
+  ESP_LOGI(TAG, "Starting main.");
 
-    bool ledState = false;
+  // pump init first so we know it's off before anything gets the chance to block it
+  static Pump pump;
 
-    gpio_reset_pin(onboardLED);
-    gpio_set_direction(onboardLED, GPIO_MODE_OUTPUT);
+  static NvsHandler nvs;
+  ESP_ERROR_CHECK(nvs.init());
+  static WifiHandler wifi(nvs);
 
-    gpio_reset_pin(eraseWifi);
-    gpio_set_direction(eraseWifi, GPIO_MODE_INPUT);
-    gpio_set_pull_mode(eraseWifi, GPIO_PULLUP_ONLY);
-    bool prevState = false;
+  // THE queue
+  QueueHandle_t queue = xQueueCreate(16, sizeof(queue_entry));
+  ESP_ERROR_CHECK(queue ? ESP_OK : ESP_ERR_NO_MEM);
 
+  // start wifi network
+  const bool station = (start_network(nvs, wifi) == NetMode::Station);
 
-    // initialize NVS
-    static NvsHandler nvs;
-    ESP_ERROR_CHECK(nvs.init());
+  // mqtt only runs while we're in station mode, it self attempts connections to wifi once wifi has an ip
 
-    // initialize WiFi
-    static WifiHandler wifi(nvs);
-    ESP_ERROR_CHECK(wifi.init());
-    if (!wifi.hasStoredCreds())
-    {
-        wifi.startSoftAP("esp32test", "fuckme123");
-        static ProvisioningServer provServer(wifi);
-        provServer.onCredsSaved([](bool connected) {
-        if (connected) esp_restart();
-        // on failure: do nothing, server stays up on the failure page for a retry
-        });
-        esp_err_t err = provServer.start();
-        if (err != ESP_OK)
-        {
-            ESP_LOGE(mainTag, "Failed to start provisioning server: %s", esp_err_to_name(err));
-        }
-    }
-    else{
-        esp_err_t err = wifi.startStation();
-        if (err == ESP_OK)
-        {
-            ESP_LOGI(mainTag, "Connected to wifi.");
-        }
-        else
-        {
-            nvs.eraseNamespace("wifi");
-            ESP_LOGE(mainTag, "Failed to connect to wifi with stored creds: %s", esp_err_to_name(err));
-        }
-    }
+  static MQTTHandler mqtt(queue);
+  static const std::string brokerUri = broker_uri(nvs);
+  if (station)
+    ESP_ERROR_CHECK(mqtt.begin(brokerUri.c_str()));
 
-    if (wifi())
-    {
-        // if we're connected we can run the mqtt testing.
-        // create client.
-        static MQTTHandler mqtt;
+  // everything below is satic, main returns but tasks keep rönning
+  static Processing processing(queue, station ? &mqtt : nullptr, &pump);
+  processing.onWifiConfigRequest([] {
+    nvs.setString(SYS_NAMESPACE, FORCE_PROV_KEY, "1");
+    esp_restart();
+  });
 
-        // create dummy data
-        ntc_data ntc_d = {.temperature = 25};
-        pulse_data pulse_d = {.heart_rate = 100, .spo2 = 50};
-        combined_data data = {.ntc = ntc_d, .pulse = pulse_d, .ntc_valid = true, .pulse_valid = true};
-        vTaskDelay(pdMS_TO_TICKS(3000));
-        mqtt.publish(data);
-    }
+  // if power is cut during a session, we go straight back into the session once sensors are up
+  // if we're NOT in "session"/ station mode, we clear the flag
+  std::string sessionFlag;
+  const bool interrupted =
+      nvs.getString(SESSION_NVS_NS, SESSION_NVS_KEY, sessionFlag) == ESP_OK &&
+      sessionFlag == "1";
 
-    // run the main loop regardless of mqtt state.
-    while (true) {
+  if (interrupted && station) {
+    ESP_LOGW(TAG, "Previous session was interrupted, recovering paused.");
+    processing.resumeSessionAfterInit();
+  } else if (interrupted) {
+    ESP_ERROR_CHECK_WITHOUT_ABORT(
+        nvs.setString(SESSION_NVS_NS, SESSION_NVS_KEY, "0"));
+  }
+  processing.onSessionActive([](bool active) {
+    nvs.setString(SESSION_NVS_NS, SESSION_NVS_KEY, active ? "1" : "0");
+  });
 
-        int curState = !gpio_get_level(eraseWifi);
-        if (curState && !prevState)
-        {
-            nvs.eraseNamespace("wifi");
-            ESP_LOGI(mainTag, "Namespace wifi erased.");
-            esp_restart();
-        }
-        prevState = curState;
+  ESP_ERROR_CHECK(processing.begin(station ? Processing::State::Init
+                                           : Processing::State::Provisioning));
+  static Buttons buttons(queue);
+  ESP_ERROR_CHECK(buttons.begin());
 
-        ledState = !ledState;
-        gpio_set_level(onboardLED, ledState);
-        //ESP_LOGI(mainTag, "LED: %s", ledState ? "on" : "off");
-        vTaskDelay(pdMS_TO_TICKS(1000));
-    }
+  static Thermistor ntc(queue);
+  ESP_ERROR_CHECK_WITHOUT_ABORT(ntc.begin());
+
+  static MAX30102 pulse(queue);
+  ESP_ERROR_CHECK_WITHOUT_ABORT(pulse.begin());
+
 }

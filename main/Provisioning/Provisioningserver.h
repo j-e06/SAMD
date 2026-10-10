@@ -1,20 +1,18 @@
 #pragma once
 #include <atomic>
-#include <functional>
-#include "esp_err.h"
+#include <string>
 #include "esp_http_server.h"
 #include "../wifi/WifiHandler.h"
 
 class ProvisioningServer {
 public:
-    explicit ProvisioningServer(WifiHandler& wifi);
-    ~ProvisioningServer();
-
-    void onCredsSaved(std::function<void(bool connected)> cb) { credsSavedCb_ = std::move(cb); }
+    ProvisioningServer(NvsHandler& nvs, WifiHandler& wifi) : nvs_(nvs), wifi_(wifi) {}
+    // connect calls this once creds have been tried & worked
+    void onCredsSaved(void (*cb)(bool connected)) { credsSavedCb_ = cb; }
 
     esp_err_t start();
-    esp_err_t stop();
-
+    ProvisioningServer(const ProvisioningServer &) = delete;
+    ProvisioningServer &operator=(const ProvisioningServer &) = delete;
 private:
     enum class ConnectStatus { Idle, Connecting, Connected, Failed };
 
@@ -23,14 +21,12 @@ private:
     static esp_err_t statusGetHandler(httpd_req_t* req);
     static void connectTaskEntry(void* arg);
 
-    esp_err_t handleSaveCreds(httpd_req_t* req);
-    esp_err_t registerHandler(const char* uri, httpd_method_t method, esp_err_t (*handler)(httpd_req_t*));
-
+    NvsHandler& nvs_;
     WifiHandler& wifi_;
+    std::string pendingSsid_, pendingPass_, pendingBroker_;
     httpd_handle_t server_ = nullptr;
-    std::function<void(bool connected)> credsSavedCb_;
+    void (*credsSavedCb_)(bool connected) = nullptr;
     std::atomic<ConnectStatus> status_{ConnectStatus::Idle};
 
-    static constexpr size_t MAX_BODY_LEN = 512;
-    static constexpr TickType_t CONNECT_TIMEOUT = pdMS_TO_TICKS(15000);
+    static constexpr TickType_t CONNECT_TIMEOUT = pdMS_TO_TICKS(30000);
 };
